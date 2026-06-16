@@ -286,7 +286,7 @@ class JMComicPlugin(Star):
                 if local_pdf:
                     yield event.chain_result([
                         Plain(f"📕 PDF: JM{task.jm_id}.pdf"),
-                        File.fromFileSystem(local_pdf),
+                        File(name=f"JM{task.jm_id}.pdf", file=local_pdf),
                     ])
                 else:
                     yield event.plain_result("❌ PDF 文件下载失败")
@@ -301,7 +301,7 @@ class JMComicPlugin(Star):
                 if local_zip:
                     yield event.chain_result([
                         Plain(f"📦 ZIP: JM{task.jm_id}.zip"),
-                        File.fromFileSystem(local_zip),
+                        File(name=f"JM{task.jm_id}.zip", file=local_zip),
                     ])
                 else:
                     yield event.plain_result("❌ ZIP 文件下载失败")
@@ -318,7 +318,7 @@ class JMComicPlugin(Star):
                 if local_pdf:
                     yield event.chain_result([
                         Plain(f"📕 PDF: JM{task.jm_id}.pdf"),
-                        File.fromFileSystem(local_pdf),
+                        File(name=f"JM{task.jm_id}.pdf", file=local_pdf),
                     ])
 
         else:
@@ -337,7 +337,7 @@ class JMComicPlugin(Star):
                 if local_pdf:
                     await event.send(event.chain_result([
                         Plain(f"📕 PDF: JM{task.jm_id}.pdf"),
-                        File.fromFileSystem(local_pdf),
+                        File(name=f"JM{task.jm_id}.pdf", file=local_pdf),
                     ]))
 
         elif mode == "zip":
@@ -347,7 +347,7 @@ class JMComicPlugin(Star):
                 if local_zip:
                     await event.send(event.chain_result([
                         Plain(f"📦 ZIP: JM{task.jm_id}.zip"),
-                        File.fromFileSystem(local_zip),
+                        File(name=f"JM{task.jm_id}.zip", file=local_zip),
                     ]))
 
         elif mode == "images_and_pdf":
@@ -358,7 +358,7 @@ class JMComicPlugin(Star):
                 if local_pdf:
                     await event.send(event.chain_result([
                         Plain(f"📕 PDF: JM{task.jm_id}.pdf"),
-                        File.fromFileSystem(local_pdf),
+                        File(name=f"JM{task.jm_id}.pdf", file=local_pdf),
                     ]))
 
         else:

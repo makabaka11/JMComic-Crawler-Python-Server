@@ -63,10 +63,10 @@
                 "type": "string",
                 "hint": "以什么形式发送下载的文件",
                 "options": [
-                    {"label": "图片（逐张发送）", "value": "images"},
-                    {"label": "PDF 文件", "value": "pdf"},
-                    {"label": "ZIP 压缩包", "value": "zip"},
-                    {"label": "图片 + PDF", "value": "images_and_pdf"}
+                    "images",
+                    "pdf",
+                    "zip",
+                    "images_and_pdf"
                 ],
                 "default": "images"
             },
