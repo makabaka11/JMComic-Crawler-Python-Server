@@ -27,16 +27,28 @@ from typing import Optional
 # 确保 jmcomic 库在 sys.path 中
 sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 import jmcomic
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    _cache_cleanup_expired()
+    _cleanup_task = asyncio.create_task(_cache_cleanup_loop())
+    yield
+    _cleanup_task.cancel()
+
+
 app = FastAPI(
     title="JMComic Server",
     description="禁漫下载后端服务，为 AstrBot 插件提供 REST API",
     version=jmcomic.__version__,
+    lifespan=lifespan,
 )
 
 # ================================================================
@@ -77,6 +89,11 @@ class ServerConfig:
         db_dir.mkdir(parents=True, exist_ok=True)
         self.cache_db_path = db_dir / "cache.db"
 
+        # 黑名单文件（可选，每行一个 JM ID）
+        self.blacklist_file = os.environ.get("JMCOMIC_BLACKLIST_FILE", "")
+        # 黑名单 ID 列表（逗号分隔）
+        self.blacklist_ids = os.environ.get("JMCOMIC_BLACKLIST_IDS", "")
+
 
 config = ServerConfig()
 
@@ -112,8 +129,80 @@ def _get_cache_db() -> sqlite3.Connection:
                 cached_at   REAL NOT NULL
             )"""
         )
+        _cache_conn.execute(
+            """CREATE TABLE IF NOT EXISTS blacklist (
+                jm_id       TEXT PRIMARY KEY,
+                reason      TEXT DEFAULT '',
+                added_at    REAL NOT NULL
+            )"""
+        )
         _cache_conn.commit()
+
+        # 从环境变量和文件加载黑名单
+        _load_blacklist_from_env()
+        _load_blacklist_from_file()
+
     return _cache_conn
+
+
+def _load_blacklist_from_env():
+    """从环境变量加载黑名单 ID"""
+    ids = config.blacklist_ids
+    if not ids:
+        return
+    db = _get_cache_db()
+    now = time.time()
+    for jm_id in ids.split(","):
+        jm_id = jm_id.strip()
+        if not jm_id:
+            continue
+        db.execute(
+            "INSERT OR IGNORE INTO blacklist (jm_id, reason, added_at) VALUES (?, ?, ?)",
+            (jm_id, "env", now),
+        )
+    db.commit()
+
+
+def _load_blacklist_from_file():
+    """从文件加载黑名单 ID（启动时同步到 SQLite）
+    每行格式: ID;reason  或  ID
+    """
+    bl_file = config.blacklist_file
+    if not bl_file:
+        return
+    bl_path = Path(bl_file)
+    if not bl_path.exists():
+        return
+    db = _get_cache_db()
+    now = time.time()
+    count = 0
+    with open(bl_path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split(";", 1)
+            jm_id = parts[0].strip()
+            reason = parts[1].strip() if len(parts) > 1 else "file"
+            if not jm_id:
+                continue
+            db.execute(
+                "INSERT OR REPLACE INTO blacklist (jm_id, reason, added_at) VALUES (?, ?, ?)",
+                (jm_id, reason, now),
+            )
+            count += 1
+    db.commit()
+    if count:
+        print(f"[Blacklist] 从文件加载了 {count} 条黑名单: {bl_file}")
+
+
+def _is_blacklisted(jm_id: str) -> Optional[str]:
+    """检查 ID 是否在黑名单中，返回原因或 None"""
+    db = _get_cache_db()
+    row = db.execute(
+        "SELECT reason FROM blacklist WHERE jm_id = ?", (jm_id,)
+    ).fetchone()
+    return row[0] if row else None
 
 
 def _cache_get(jm_id: str) -> Optional[dict]:
@@ -229,13 +318,6 @@ async def _cache_cleanup_loop():
             print(f"[Cache] 清理异常: {e}")
 
 
-@app.on_event("startup")
-async def startup():
-    """启动时执行一次过期清理，并开启后台清理任务"""
-    _cache_cleanup_expired()
-    asyncio.create_task(_cache_cleanup_loop())
-
-
 # ================================================================
 #  Pydantic Models
 # ================================================================
@@ -339,6 +421,57 @@ async def force_cleanup():
 
 
 # ================================================================
+#  黑名单管理
+# ================================================================
+
+
+@app.get("/api/blacklist")
+async def get_blacklist():
+    """查看黑名单"""
+    db = _get_cache_db()
+    rows = db.execute(
+        "SELECT jm_id, reason, added_at FROM blacklist ORDER BY added_at DESC"
+    ).fetchall()
+    return [
+        {
+            "jm_id": r[0],
+            "reason": r[1],
+            "added_at": r[2],
+            "added_time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(r[2])),
+        }
+        for r in rows
+    ]
+
+
+@app.post("/api/blacklist/{jm_id}")
+async def add_blacklist(jm_id: str, reason: str = ""):
+    """添加黑名单"""
+    db = _get_cache_db()
+    db.execute(
+        "INSERT OR REPLACE INTO blacklist (jm_id, reason, added_at) VALUES (?, ?, ?)",
+        (jm_id, reason or "manual", time.time()),
+    )
+    db.commit()
+    return {"ok": True, "jm_id": jm_id}
+
+
+@app.delete("/api/blacklist/{jm_id}")
+async def remove_blacklist(jm_id: str):
+    """移除黑名单"""
+    db = _get_cache_db()
+    db.execute("DELETE FROM blacklist WHERE jm_id = ?", (jm_id,))
+    db.commit()
+    return {"ok": True, "jm_id": jm_id}
+
+
+@app.get("/api/blacklist/check/{jm_id}")
+async def check_blacklist(jm_id: str):
+    """检查 ID 是否在黑名单中"""
+    reason = _is_blacklisted(jm_id)
+    return {"jm_id": jm_id, "blacklisted": reason is not None, "reason": reason}
+
+
+# ================================================================
 #  Download Album
 # ================================================================
 
@@ -348,11 +481,21 @@ async def download_album(req: DownloadRequest):
     """下载本子（优先命中缓存）"""
     jm_id = req.id
 
-    # 1. 检查缓存
+    # 1. 黑名单检查
+    reason = _is_blacklisted(jm_id)
+    if reason is not None:
+        return TaskStatus(
+            task_id="",
+            status="failed",
+            jm_id=jm_id,
+            jm_type="album",
+            error=f"JM{jm_id} 已被屏蔽（原因: {reason}）",
+        )
+
+    # 2. 检查缓存
     if not req.force:
         cached = _cache_get(jm_id)
         if cached and cached["jm_type"] == "album":
-            # 确保在活跃任务中可访问
             _active_tasks[cached["task_id"]] = cached
             return TaskStatus(
                 task_id=cached["task_id"],
@@ -365,7 +508,7 @@ async def download_album(req: DownloadRequest):
                 files=cached["files"],
             )
 
-    # 2. 缓存未命中，执行下载
+    # 3. 缓存未命中，执行下载
     task_id = f"album_{jm_id}_{uuid.uuid4().hex[:8]}"
     download_dir = config.download_root / task_id
     download_dir.mkdir(parents=True, exist_ok=True)
@@ -427,7 +570,18 @@ async def download_photo(req: DownloadRequest):
     """下载章节（优先命中缓存）"""
     jm_id = req.id
 
-    # 1. 检查缓存
+    # 1. 黑名单检查
+    reason = _is_blacklisted(jm_id)
+    if reason is not None:
+        return TaskStatus(
+            task_id="",
+            status="failed",
+            jm_id=jm_id,
+            jm_type="photo",
+            error=f"JM{jm_id} 已被屏蔽（原因: {reason}）",
+        )
+
+    # 2. 检查缓存
     if not req.force:
         cached = _cache_get(jm_id)
         if cached and cached["jm_type"] == "photo":
