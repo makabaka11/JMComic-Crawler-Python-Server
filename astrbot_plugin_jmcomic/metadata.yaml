@@ -1,0 +1,12 @@
+name: astrbot_plugin_jmcomic
+display_name: JMComic 禁漫下载
+desc: 对接 JMComic-Crawler-Python，支持通过禁漫ID或链接下载本子/章节，自动发送图片/PDF到会话
+help: |
+  使用方式：
+  - /jm <禁漫ID>  下载指定本子（如 /jm 123456）
+  - /jm <禁漫链接>  从链接下载
+  - /jm photo <章节ID>  下载指定章节
+  - 直接发送禁漫链接或ID（机器人自动识别）
+version: v1.0.0
+author: makabaka11
+repo: https://github.com/hect0x7/JMComic-Crawler-Python

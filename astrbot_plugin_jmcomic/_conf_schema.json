@@ -1,0 +1,122 @@
+{
+    "enabled": {
+        "description": "总开关",
+        "type": "bool",
+        "hint": "JMComic 禁漫下载插件总开关",
+        "default": true
+    },
+    "server": {
+        "description": "Server 连接配置",
+        "type": "object",
+        "hint": "JMComic Server 的连接地址",
+        "items": {
+            "url": {
+                "description": "Server 地址",
+                "type": "string",
+                "hint": "JMComic Server 的完整 URL，例如 http://127.0.0.1:8899",
+                "default": "http://127.0.0.1:8899"
+            }
+        }
+    },
+    "auto_detect": {
+        "description": "自动识别禁漫链接/ID",
+        "type": "bool",
+        "hint": "开启后，机器人会自动识别消息中的禁漫链接或ID并触发下载",
+        "default": false
+    },
+    "download": {
+        "description": "下载配置",
+        "type": "object",
+        "hint": "传递给 Server 的下载参数",
+        "items": {
+            "max_pages": {
+                "description": "最大下载页数",
+                "type": "int",
+                "hint": "单次下载的最大图片数量，0 表示不限制。建议设置上限防止滥用",
+                "slider": {
+                    "min": 0,
+                    "max": 500,
+                    "step": 10
+                },
+                "default": 100
+            },
+            "timeout": {
+                "description": "请求超时(秒)",
+                "type": "int",
+                "hint": "HTTP 请求的超时时间（应大于 Server 端的下载超时）",
+                "slider": {
+                    "min": 60,
+                    "max": 900,
+                    "step": 30
+                },
+                "default": 360
+            }
+        }
+    },
+    "send": {
+        "description": "发送配置",
+        "type": "object",
+        "hint": "消息发送相关配置",
+        "items": {
+            "mode": {
+                "description": "发送模式",
+                "type": "string",
+                "hint": "以什么形式发送下载的文件",
+                "options": [
+                    {"label": "图片（逐张发送）", "value": "images"},
+                    {"label": "PDF 文件", "value": "pdf"},
+                    {"label": "ZIP 压缩包", "value": "zip"},
+                    {"label": "图片 + PDF", "value": "images_and_pdf"}
+                ],
+                "default": "images"
+            },
+            "max_images_per_message": {
+                "description": "单条消息最大图片数",
+                "type": "int",
+                "hint": "单条消息中最多发送几张图片，超过则分批发送",
+                "slider": {
+                    "min": 1,
+                    "max": 20,
+                    "step": 1
+                },
+                "default": 5
+            },
+            "delete_after_send": {
+                "description": "发送后删除文件",
+                "type": "bool",
+                "hint": "发送完成后通知 Server 清理文件以节省空间",
+                "default": true
+            },
+            "send_cover_first": {
+                "description": "先发送封面",
+                "type": "bool",
+                "hint": "下载前先发送本子封面作为预览",
+                "default": true
+            }
+        }
+    },
+    "rate_limit": {
+        "description": "频率限制",
+        "type": "object",
+        "hint": "防止滥用",
+        "items": {
+            "enabled": {
+                "description": "启用频率限制",
+                "type": "bool",
+                "hint": "是否限制用户下载频率",
+                "default": true
+            },
+            "cooldown_seconds": {
+                "description": "冷却时间(秒)",
+                "type": "int",
+                "hint": "同一用户两次下载之间的最小间隔",
+                "slider": {
+                    "min": 10,
+                    "max": 600,
+                    "step": 10
+                },
+                "default": 60
+            }
+        }
+    }
+}
