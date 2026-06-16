@@ -204,13 +204,7 @@ class JMComicPlugin(Star):
             if not task.ok:
                 return f"下载失败: {task.error}"
 
-            # 发送
             info = await self._send_task_results(event, task)
-
-            # 清理
-            if self.cfg.send_delete_after_send:
-                await self.client.delete_task(task.task_id)
-
             return info
 
     async def _handle_download(
@@ -232,7 +226,6 @@ class JMComicPlugin(Star):
         type_label = "本子" if jm_type == "album" else "章节"
 
         async with lock:
-            yield event.plain_result(f"🔍 正在获取{type_label}信息: **JM{jm_id}** ...")
             self._mark_used(user_id)
 
             if jm_type == "album":
@@ -244,11 +237,17 @@ class JMComicPlugin(Star):
                 yield event.plain_result(f"❌ 下载失败: {task.error}")
                 return
 
+            if task.status == "cached":
+                yield event.plain_result(
+                    f"💾 命中缓存，直接发送: **JM{jm_id}**\n📄 共 {task.file_count} 张图片"
+                )
+            else:
+                yield event.plain_result(
+                    f"✅ 下载完成: **JM{jm_id}**\n📄 共 {task.file_count} 张图片"
+                )
+
             async for result in self._yield_task_results(event, task):
                 yield result
-
-            if self.cfg.send_delete_after_send:
-                await self.client.delete_task(task.task_id)
 
     # ================================================================
     #  发送

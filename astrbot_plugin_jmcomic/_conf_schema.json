@@ -81,12 +81,6 @@
                 },
                 "default": 5
             },
-            "delete_after_send": {
-                "description": "发送后删除文件",
-                "type": "bool",
-                "hint": "发送完成后通知 Server 清理文件以节省空间",
-                "default": true
-            },
             "send_cover_first": {
                 "description": "先发送封面",
                 "type": "bool",

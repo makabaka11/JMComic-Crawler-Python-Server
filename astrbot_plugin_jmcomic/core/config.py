@@ -54,10 +54,6 @@ class PluginConfig:
         return self._cfg.get("send", {}).get("max_images_per_message", 5)
 
     @property
-    def send_delete_after_send(self) -> bool:
-        return self._cfg.get("send", {}).get("delete_after_send", True)
-
-    @property
     def send_cover_first(self) -> bool:
         return self._cfg.get("send", {}).get("send_cover_first", True)
 

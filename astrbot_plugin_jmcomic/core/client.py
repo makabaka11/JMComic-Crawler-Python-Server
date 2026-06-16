@@ -20,7 +20,7 @@ from .config import PluginConfig
 class TaskStatus:
     """服务器返回的任务状态"""
     task_id: str
-    status: str  # pending / downloading / success / failed
+    status: str  # pending / downloading / success / failed / cached
     jm_id: str
     jm_type: str
     error: Optional[str] = None
@@ -31,7 +31,7 @@ class TaskStatus:
 
     @property
     def ok(self) -> bool:
-        return self.status == "success"
+        return self.status in ("success", "cached")
 
     @classmethod
     def from_dict(cls, d: dict) -> "TaskStatus":
