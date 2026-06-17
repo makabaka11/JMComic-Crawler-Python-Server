@@ -181,6 +181,62 @@ class JMComicClient:
         except Exception:
             pass
 
+    # ---- 黑名单管理 ----
+
+    async def add_blacklist(self, jm_id: str, reason: str = "") -> bool:
+        """添加黑名单"""
+        session = await self._ensure_session()
+        try:
+            async with session.post(
+                f"{self.base_url}/api/blacklist/{jm_id}",
+                params={"reason": reason},
+            ) as resp:
+                return resp.status == 200
+        except Exception as e:
+            logger.warning(f"[JMComic] 添加黑名单失败: {jm_id}, {e}")
+            return False
+
+    async def remove_blacklist(self, jm_id: str) -> bool:
+        """移除黑名单"""
+        session = await self._ensure_session()
+        try:
+            async with session.delete(
+                f"{self.base_url}/api/blacklist/{jm_id}"
+            ) as resp:
+                return resp.status == 200
+        except Exception as e:
+            logger.warning(f"[JMComic] 移除黑名单失败: {jm_id}, {e}")
+            return False
+
+    async def check_blacklist(self, jm_id: str) -> Optional[str]:
+        """检查是否在黑名单中，返回原因或 None"""
+        session = await self._ensure_session()
+        try:
+            async with session.get(
+                f"{self.base_url}/api/blacklist/check/{jm_id}"
+            ) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    if data.get("blacklisted"):
+                        return data.get("reason") or "blacklisted"
+                    return None
+        except Exception as e:
+            logger.warning(f"[JMComic] 检查黑名单失败: {jm_id}, {e}")
+        return None
+
+    async def list_blacklist(self) -> list[dict]:
+        """列出黑名单"""
+        session = await self._ensure_session()
+        try:
+            async with session.get(
+                f"{self.base_url}/api/blacklist"
+            ) as resp:
+                if resp.status == 200:
+                    return await resp.json()
+        except Exception as e:
+            logger.warning(f"[JMComic] 获取黑名单失败: {e}")
+        return []
+
     async def download_file(self, task_id: str, file_path: str) -> Optional[bytes]:
         """下载单个文件内容（任务下载目录中的图片等）"""
         session = await self._ensure_session()

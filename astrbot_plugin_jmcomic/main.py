@@ -129,6 +129,86 @@ class JMComicPlugin(Star):
             yield result
 
     # ================================================================
+    #  黑名单管理
+    # ================================================================
+
+    @filter.command("jmban")
+    async def on_jmban(self, event: AstrMessageEvent):
+        """
+        添加黑名单
+        /jmban <ID> [原因]   屏蔽指定 ID
+        /jmban list          查看黑名单
+        """
+        if not self.cfg.enabled:
+            return
+
+        args = event.message_str.strip().split(maxsplit=1)
+
+        if len(args) < 2:
+            yield event.plain_result(
+                "📖 **黑名单帮助**\n"
+                "• `/jmban <ID> [原因]`  屏蔽指定 ID\n"
+                "• `/jmban list`  查看黑名单\n"
+                "示例: `/jmban 123456 违规内容`"
+            )
+            return
+
+        sub_cmd = args[1].strip()
+
+        # 查看黑名单
+        if sub_cmd.lower() == "list":
+            entries = await self.client.list_blacklist()
+            if not entries:
+                yield event.plain_result("📋 黑名单为空")
+                return
+            lines = ["📋 **黑名单列表**"]
+            for e in entries:
+                t = e.get("added_time", "")
+                lines.append(f"• JM{e.get('jm_id')} — {e.get('reason', '')} ({t})")
+            yield event.plain_result("\n".join(lines))
+            return
+
+        # 解析 ID + 原因
+        parts = sub_cmd.split(maxsplit=1)
+        extracted = self.client.extract_jm_id(parts[0])
+        if extracted is None:
+            yield event.plain_result(f"❌ 无法识别 ID: `{parts[0]}`")
+            return
+
+        jm_id, _ = extracted
+        reason = parts[1].strip() if len(parts) > 1 else "manual"
+
+        ok = await self.client.add_blacklist(jm_id, reason)
+        if ok:
+            yield event.plain_result(f"✅ 已将 **JM{jm_id}** 加入黑名单\n📝 原因: {reason}")
+        else:
+            yield event.plain_result(f"❌ 添加黑名单失败: JM{jm_id}")
+
+    @filter.command("jmunban", alias={"jmuban"})
+    async def on_jmunban(self, event: AstrMessageEvent):
+        """移除黑名单"""
+        if not self.cfg.enabled:
+            return
+
+        args = event.message_str.strip().split(maxsplit=1)
+
+        if len(args) < 2:
+            yield event.plain_result("用法: `/jmunban <ID>` — 从黑名单移除指定 ID")
+            return
+
+        extracted = self.client.extract_jm_id(args[1].strip())
+        if extracted is None:
+            yield event.plain_result(f"❌ 无法识别 ID: `{args[1]}`")
+            return
+
+        jm_id, _ = extracted
+        ok = await self.client.remove_blacklist(jm_id)
+        if ok:
+            yield event.plain_result(f"✅ 已将 **JM{jm_id}** 移出黑名单")
+        else:
+            yield event.plain_result(f"❌ 移除黑名单失败: JM{jm_id}")
+
+    # ================================================================
     #  LLM 工具
     # ================================================================
 
