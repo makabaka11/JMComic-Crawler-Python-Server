@@ -133,6 +133,15 @@ class JMComicClient:
             data = await resp.json()
             return TaskStatus.from_dict(data)
 
+    async def _read_error(self, resp, default: str) -> str:
+        """读取错误响应，兼容 JSON 和 text/plain"""
+        try:
+            data = await resp.json()
+            return data.get("detail") or data.get("error") or default
+        except Exception:
+            text = await resp.text()
+            return text or default
+
     async def export_pdf(self, task_id: str) -> ExportResult:
         """导出 PDF"""
         session = await self._ensure_session()
@@ -144,12 +153,10 @@ class JMComicClient:
             if resp.status == 200:
                 data = await resp.json()
                 return ExportResult(task_id=task_id, pdf_path=data.get("pdf_path"))
-            else:
-                data = await resp.json()
-                return ExportResult(
-                    task_id=task_id,
-                    error=data.get("detail", "PDF 导出失败"),
-                )
+            return ExportResult(
+                task_id=task_id,
+                error=await self._read_error(resp, "PDF 导出失败"),
+            )
 
     async def export_zip(self, task_id: str) -> ExportResult:
         """导出 ZIP"""
@@ -162,12 +169,10 @@ class JMComicClient:
             if resp.status == 200:
                 data = await resp.json()
                 return ExportResult(task_id=task_id, zip_path=data.get("zip_path"))
-            else:
-                data = await resp.json()
-                return ExportResult(
-                    task_id=task_id,
-                    error=data.get("detail", "ZIP 打包失败"),
-                )
+            return ExportResult(
+                task_id=task_id,
+                error=await self._read_error(resp, "ZIP 打包失败"),
+            )
 
     async def delete_task(self, task_id: str):
         """删除任务并清理文件"""

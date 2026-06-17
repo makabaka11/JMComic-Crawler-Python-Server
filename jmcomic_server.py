@@ -218,9 +218,11 @@ def _cache_get(jm_id: str) -> Optional[dict]:
         return None
 
     cached = {
+        "task_id": row[2],
+        "status": "cached",
         "jm_id": row[0],
         "jm_type": row[1],
-        "task_id": row[2],
+        "error": None,
         "download_dir": row[3],
         "album_name": row[4],
         "album_author": row[5],
